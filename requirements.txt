@@ -1,0 +1,5 @@
+# Plugin Vault dependencies
+wxPython>=4.2.0
+pywin32>=306
+pefile>=2023.2.7
+prismatoid>=0.18.3

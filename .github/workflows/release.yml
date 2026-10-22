@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      # prism loads prism.dll at runtime through cffi, so PyInstaller can't see
+      # it by import analysis; collect it explicitly.
+      - name: Build
+        run: >
+          pyinstaller --noconfirm --windowed
+          --name "Plugin Vault"
+          --collect-binaries prism
+          --hidden-import prism._native
+          main.py
+
+      - name: Package
+        shell: pwsh
+        run: |
+          Copy-Item README.md, LICENSE "dist/Plugin Vault/"
+          Compress-Archive -Path "dist/Plugin Vault" -DestinationPath Plugin-Vault-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Plugin-Vault-windows
+          path: Plugin-Vault-windows.zip
+
+      # Only tag pushes publish a release; a manual run just leaves the artifact
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${{ github.ref_name }}" Plugin-Vault-windows.zip
+          --title "Plugin Vault ${{ github.ref_name }}"
+          --generate-notes

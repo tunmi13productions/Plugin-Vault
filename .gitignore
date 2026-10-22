@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# PyInstaller (builds are made by the release workflow)
+build/
+dist/
+*.spec
+
+# Local data
+cache.json
+*.pgz
