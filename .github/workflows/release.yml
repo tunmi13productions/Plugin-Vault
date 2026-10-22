@@ -23,15 +23,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      # prism loads prism.dll at runtime through cffi, so PyInstaller can't see
-      # it by import analysis; collect it explicitly.
+      # prism adds its _native folder to the package path at runtime and loads
+      # prism.dll and the _prism_cffi extension from there, so PyInstaller's
+      # import analysis misses them (and cffi's _cffi_backend). Without these
+      # the app still runs, but screen reader announcements are silently off.
       - name: Build
-        run: >
-          pyinstaller --noconfirm --windowed
-          --name "Plugin Vault"
-          --collect-binaries prism
-          --hidden-import prism._native
-          main.py
+        shell: pwsh
+        run: |
+          $pyd = python -c "import pathlib, importlib.util as u; print(pathlib.Path(u.find_spec('prism').origin).parent / '_native' / '_prism_cffi.pyd')"
+          pyinstaller --noconfirm --windowed `
+            --name "Plugin Vault" `
+            --collect-binaries prism `
+            --hidden-import _cffi_backend `
+            --add-binary "$pyd;prism" `
+            main.py
+
+      # Fail the build rather than ship a release without speech
+      - name: Check bundled files
+        shell: pwsh
+        run: |
+          foreach ($f in 'prism/_native/prism.dll', 'prism/_prism_cffi.pyd') {
+            if (-not (Test-Path "dist/Plugin Vault/_internal/$f")) { throw "Missing from build: $f" }
+          }
 
       - name: Package
         shell: pwsh
